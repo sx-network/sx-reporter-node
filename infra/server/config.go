@@ -123,7 +123,7 @@ func (serverParams *RawServerConfig) GenerateConfig() *ServerConfig {
 		DataDir:       serverParams.RawConfig.DataDir,
 		ReporterConfig: &ReporterConfig{
 			DataFeedAMQPURI:          serverParams.RawConfig.RawReporter.AMQPURI,
-			DataFeedAMQPExchangeName: serverParams.RawConfig.RawReporter.AMQPQueueName,
+			DataFeedAMQPExchangeName: serverParams.RawConfig.RawReporter.AMQPExchangeName,
 			DataFeedAMQPQueueName:    serverParams.RawConfig.RawReporter.AMQPQueueName,
 			VerifyOutcomeURI:         serverParams.RawConfig.RawReporter.VerifyOutcomeAPIURL,
 			OutcomeReporterAddress:   serverParams.RawConfig.RawReporter.OutcomeReporterAddress,
