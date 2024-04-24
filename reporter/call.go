@@ -1,0 +1,105 @@
+package reporter
+
+import (
+	"math/big"
+
+	"github.com/umbracle/ethgo"
+	ethgoabi "github.com/umbracle/ethgo/abi"
+	"github.com/umbracle/ethgo/contract"
+)
+
+var functions = []string{
+	"function _votingPeriod() view returns (uint256)",
+}
+
+const (
+	VotingPeriod string = "_votingPeriod"
+)
+
+func (d *ReporterService) sendCall(
+	functionType string,
+) interface{} {
+	var functionName string
+	var functionArgs []interface{}
+
+	switch functionType {
+	case VotingPeriod:
+		functionName = VotingPeriod
+	}
+
+	abiContract, err := ethgoabi.NewABIFromList(functions)
+	if err != nil {
+		d.txService.logger.Error(
+			"failed to get abi contract via ethgo",
+			"function", functionName,
+			"functionArgs", functionArgs,
+			"functionSig", abiContract,
+			"err", err,
+		)
+		return nil
+	}
+
+	c := contract.NewContract(
+		ethgo.Address(ethgo.HexToAddress(d.config.OutcomeReporterAddress)),
+		abiContract,
+		contract.WithJsonRPC(d.txService.client.Eth()),
+	)
+
+	res, err := c.Call(functionName, ethgo.Latest)
+	if err != nil {
+		d.txService.logger.Error(
+			"failed to call via ethgo",
+			"function", functionName,
+			"functionArgs", functionArgs,
+			"functionSig", abiContract,
+			"err", err,
+		)
+		return nil
+	}
+
+	switch functionType {
+	case VotingPeriod:
+		votingPeriod, ok := res["0"].(*big.Int)
+		if !ok {
+			d.txService.logger.Error(
+				"failed to convert result to big int",
+				"function", functionName,
+				"functionArgs", functionArgs,
+				"functionSig", abiContract,
+				"err", err,
+			)
+			return nil
+		}
+		return votingPeriod
+	}
+
+	return nil
+}
+
+func (d *ReporterService) getTransactionCount(address string) (*big.Int, error) {
+    abiContract, err := ethgoabi.NewABIFromList([]string{})
+    if err != nil {
+        d.txService.logger.Error("failed to get abi contract via ethgo", "err", err)
+        return nil, err
+    }
+
+    c := contract.NewContract(
+        ethgo.Address(ethgo.HexToAddress(address)),
+        abiContract,
+        contract.WithJsonRPC(d.txService.client.Eth()),
+    )
+
+    res, err := c.Call("eth_getTransactionCount", ethgo.Latest)
+    if err != nil {
+        d.txService.logger.Error("failed to call eth_getTransactionCount via ethgo", "err", err)
+        return nil, err
+    }
+
+    txCount, ok := res["0"].(*big.Int)
+    if !ok {
+        d.txService.logger.Error("failed to convert result to big int")
+        return nil, err
+    }
+
+    return txCount, nil
+}
