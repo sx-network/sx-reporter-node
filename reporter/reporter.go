@@ -9,7 +9,7 @@ import (
 	"github.com/sx-network/sx-reporter/reporter/proto"
 )
 
-// ReporterConfig holds configuration options for the reporter service.
+// Holds configuration options for the reporter service.
 type ReporterConfig struct {
 	MQConfig                   *MQConfig // Configuration for message queue.
 	VerifyOutcomeURI           string    // URI for verifying outcomes.
@@ -26,8 +26,8 @@ type ReportingTx struct {
 
 // Orchestrates various components of the reporter service.
 type ReporterService struct {
-	logger                                    hclog.Logger      // Logger for reporting.
-	secretsManager					          secrets.SecretsManager
+	logger                                    hclog.Logger // Logger for reporting.
+	secretsManager                            secrets.SecretsManager
 	config                                    *ReporterConfig   // Configuration for the reporter.
 	mqService                                 *MQService        // AMQP message consumer.
 	txService                                 *TxService        // JSON-RPC transaction sender.
@@ -43,18 +43,15 @@ type ReporterService struct {
 func NewReporterService(
 	logger hclog.Logger,
 	config *ReporterConfig,
-	// grpcServer *grpc.Server,
 	secretsManager *secrets.SecretsManager,
 ) (*ReporterService, error) {
 	reporterService := &ReporterService{
-		logger: logger.Named("reporter"),
-		config: config,
-		// consensusInfo:   consensusInfoFn,
+		logger:          logger.Named("reporter"),
+		config:          config,
 		reportingTxChan: make(chan *ReportingTx, 100),
-		secretsManager: *secretsManager,
+		secretsManager:  *secretsManager,
 	}
 
-	// configure and start mqService
 	if config.MQConfig.AMQPURI != "" {
 		if config.MQConfig.ExchangeName == "" {
 			return nil, fmt.Errorf("reporter 'amqp_uri' provided but missing a valid 'amqp_exchange_name'")
@@ -72,19 +69,12 @@ func NewReporterService(
 		reporterService.mqService = mqService
 	}
 
-	// configure grpc operator service
-	// if grpcServer != nil {
-	// 	proto.RegisterDataFeedOperatorServer(grpcServer, datafeedService)
-	// }
-
-	// start jsonRpc TxService
 	txService, err := newTxService(reporterService.logger)
 	if err != nil {
 		return nil, err
 	}
 	reporterService.txService = txService
 
-	// start txWorker
 	go reporterService.processTxsFromQueue()
 
 	if config.VerifyOutcomeURI == "" {
@@ -93,14 +83,12 @@ func NewReporterService(
 		return reporterService, nil
 	}
 
-	// start eventListener
 	eventListener, err := newEventListener(reporterService.logger, reporterService)
 	if err != nil {
 		return nil, err
 	}
 	reporterService.eventListener = eventListener
 
-	// start storeProcessor
 	storeProcessor, err := newStoreProcessor(reporterService.logger, reporterService)
 	if err != nil {
 		return nil, err

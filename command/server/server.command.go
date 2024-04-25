@@ -12,10 +12,8 @@ import (
 )
 
 var (
-	serverParams = &server.RawServerConfig{
-		RawConfig: &server.RawConfig{
-			RawReporter: &server.RawReporter{},
-		},
+	serverParams = &server.YAMLServerConfig{
+		YAMLReporterConfig: &server.YAMLReporterConfig{},
 	}
 )
 
@@ -47,6 +45,10 @@ func runPreRun(cmd *cobra.Command, _ []string) error {
 		}
 	} else {
 		return fmt.Errorf("config.yml file not specified. Please provide a path to the CLI config using the '--%s' flag", flags.ConfigPathFlag)
+	}
+
+	if err := serverParams.InitRawParams(); err != nil {
+		return err
 	}
 
 	return nil

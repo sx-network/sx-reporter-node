@@ -9,6 +9,8 @@ import (
 	"github.com/sx-network/sx-reporter/reporter"
 )
 
+// Creates a new server instance based on the provided ServerConfig.
+// It initializes and configures various components of the server, such as logger, secrets manager, and reporter service.
 func NewServer(serverConfig *ServerConfig) (*ServerConfig, error) {
 	logger, err := newLogger(serverConfig)
 	if err != nil {
@@ -16,14 +18,10 @@ func NewServer(serverConfig *ServerConfig) (*ServerConfig, error) {
 	}
 	serverConfig.Logger = logger
 
-	serverConfig.Logger.Info("Data dir", "path", serverConfig.DataDir)
-	serverConfig.Logger.Info("working")
-
 	if err := serverConfig.setupSecretsManager(); err != nil {
 		return nil, fmt.Errorf("failed to set up the secrets manager: %w", err)
 	}
 
-	// setup and start reporter consumer
 	if err := serverConfig.setupReporterService(); err != nil {
 		return nil, err
 	}
@@ -36,7 +34,7 @@ func NewServer(serverConfig *ServerConfig) (*ServerConfig, error) {
 // If log file is specified, and it can't be created the server command will error out
 func newLogger(serverConfig *ServerConfig) (hclog.Logger, error) {
 	return hclog.New(&hclog.LoggerOptions{
-		Name:       "sx-network-log",
+		Name:       "sx-reporter-node",
 		Level:      serverConfig.LogLevel,
 		JSONFormat: serverConfig.JSONLogFormat,
 	}), nil
@@ -47,6 +45,8 @@ func newLogger(serverConfig *ServerConfig) (hclog.Logger, error) {
 // The function then retrieves the appropriate factory method based on the secrets manager type.
 // It instantiates the secrets manager using the factory method and assigns it to serverConfig.SecretsManager.
 func (serverConfig *ServerConfig) setupSecretsManager() error {
+	serverConfig.Logger.Info("setup secrets manager")
+
 	secretsManagerConfig := serverConfig.SecretsManagerConfig
 
 	if secretsManagerConfig == nil {
@@ -61,7 +61,6 @@ func (serverConfig *ServerConfig) setupSecretsManager() error {
 	}
 
 	if secretsManagerType == secrets.Local {
-		// Only the base directory is required for the local secrets manager
 		secretsManagerParams.Extra = map[string]interface{}{
 			secrets.Path: serverConfig.DataDir,
 		}
@@ -86,11 +85,12 @@ func (serverConfig *ServerConfig) setupSecretsManager() error {
 	return nil
 }
 
-// setupDataFeedService set up and start datafeed service
+// Configures and initializes the reporter service of the server.
+// It creates a new reporter service instance with the provided configuration parameters.
 func (serverConfig *ServerConfig) setupReporterService() error {
 	serverConfig.Logger.Info("setup reporter service")
 
-	conf := &reporter.ReporterConfig{
+	reporterConfig := &reporter.ReporterConfig{
 		MQConfig: &reporter.MQConfig{
 			AMQPURI:      serverConfig.ReporterConfig.DataFeedAMQPURI,
 			ExchangeName: serverConfig.ReporterConfig.DataFeedAMQPExchangeName,
@@ -105,8 +105,7 @@ func (serverConfig *ServerConfig) setupReporterService() error {
 
 	reporterService, err := reporter.NewReporterService(
 		serverConfig.Logger,
-		conf,
-		// s.grpcServer,
+		reporterConfig,
 		&serverConfig.SecretsManager,
 	)
 	if err != nil {

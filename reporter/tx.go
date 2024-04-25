@@ -1,14 +1,20 @@
 package reporter
 
 import (
+	"context"
 	"crypto/ecdsa"
-	"crypto/x509"
-	"encoding/pem"
+	"crypto/elliptic"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
-	"github.com/DataDog/datadog-agent/comp/netflow/common"
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/hashicorp/go-hclog"
 	"github.com/sx-network/sx-reporter/helper/types"
 	"github.com/sx-network/sx-reporter/infra/secrets"
@@ -18,6 +24,7 @@ import (
 	"github.com/umbracle/ethgo/contract"
 	"github.com/umbracle/ethgo/jsonrpc"
 	"github.com/umbracle/ethgo/wallet"
+	"golang.org/x/crypto/sha3"
 )
 
 // Constants defining the JSON-RPC host address and smart contract function signatures.
@@ -61,22 +68,18 @@ func newTxService(logger hclog.Logger) (*TxService, error) {
 }
 
 func (d *ReporterService) GetPrivateKeyFromSecretsManager(keyName string) (*ecdsa.PrivateKey, error) {
+	// // Convert byte slice to hex-encoded string
+	// privateKeyString := hex.EncodeToString(privKeyBytes)
+
 	// Retrieve the private key bytes from the SecretsManager
 	privKeyBytes, err := d.secretsManager.GetSecret(keyName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve private key from SecretsManager: %v", err)
 	}
 
-	// Parse the PEM encoded private key
-	block, _ := pem.Decode(privKeyBytes)
-	if block == nil {
-		return nil, fmt.Errorf("failed to parse PEM encoded private key")
-	}
-
-	// Decode the PEM block to obtain the DER encoded private key
-	privKey, err := x509.ParseECPrivateKey(block.Bytes)
+	privKey, err := BytesToECDSAPrivateKey(privKeyBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse DER encoded private key: %v", err)
+		return nil, err
 	}
 
 	return privKey, nil
@@ -93,9 +96,12 @@ func (d *ReporterService) sendTxWithRetry(
 	report *proto.Report,
 ) {
 
-	privateKey, err := d.GetPrivateKeyFromSecretsManager(secrets.ValidatorKey)
+	d.logger.Debug("functionType", functionType)
+	d.logger.Debug("validator key", secrets.ValidatorKey)
+
+	privateKey, err := d.GetPrivateKeyFromSecretsManager(secrets.ValidatorKey) // @todo delete and use consensus
 	if err != nil {
-		d.txService.logger.Error("private keyy error")
+		d.txService.logger.Error("private key error")
 	}
 
 	const (
@@ -139,6 +145,13 @@ func (d *ReporterService) sendTxWithRetry(
 		return
 	}
 
+	validatorAddress, err := GetValidatorAddressFromSecretManager(d.secretsManager)
+	if err != nil {
+		return
+	}
+
+	d.logger.Debug("validatorAddress", validatorAddress.String())
+
 	c := contract.NewContract(
 		ethgo.Address(ethgo.HexToAddress(d.config.SXNodeAddress)),
 		abiContract,
@@ -166,7 +179,7 @@ func (d *ReporterService) sendTxWithRetry(
 	txTry := uint64(0)
 	// currNonce := d.consensusInfo().Nonce
 
-	currNonce, err := d.getCurrentNonce(d.config.SXNodeAddress)
+	currNonce, err := d.getCurrentNonce(validatorAddress.String())
 	if err != nil {
 		d.txService.logger.Error("nonce error")
 	}
@@ -203,12 +216,12 @@ func (d *ReporterService) sendTxWithRetry(
 					"marketHash", report.MarketHash,
 				)
 
-				nonce, err := d.getCurrentNonce(d.config.SXNodeAddress)
+				nonce, err := d.getCurrentNonce(validatorAddress.String())
 				if err != nil {
 					d.txService.logger.Error("nonce error")
 				}
 
-				currNonce = common.Max(nonce, nonce+1)
+				currNonce = Max(nonce, nonce+1)
 				txTry++
 
 				continue
@@ -231,7 +244,7 @@ func (d *ReporterService) sendTxWithRetry(
 			"sent tx",
 			"function", functionName,
 			"hash", txn.Hash(),
-			// "from", ethgo.Address(d.consensusInfo().ValidatorAddress),
+			"from", ethgo.Address(validatorAddress),
 			"nonce", currNonce,
 			"market", report.MarketHash,
 			"outcome", report.Outcome,
@@ -256,12 +269,12 @@ func (d *ReporterService) sendTxWithRetry(
 			return
 		} else {
 
-			nonce, err := d.getCurrentNonce(d.config.SXNodeAddress)
+			nonce, err := d.getCurrentNonce(validatorAddress.String())
 			if err != nil {
 				d.txService.logger.Error("nonce error")
 			}
 
-			currNonce = common.Max(nonce, nonce+1)
+			currNonce = Max(nonce, nonce+1)
 			d.txService.logger.Debug(
 				"got failed receipt, retrying with nextNonce and more gas",
 				"function", functionName,
@@ -307,14 +320,124 @@ func (t *TxService) waitTxConfirmed(hash ethgo.Hash) <-chan *ethgo.Receipt {
 }
 
 func (d *ReporterService) getCurrentNonce(address string) (uint64, error) {
-    // Get the transaction count for the given address
-    txCount, err := d.getTransactionCount(address)
-    if err != nil {
-        return 0, err
-    }
+	// Get the transaction count for the given address
+	txCount, err := d.GetTransactionCount(address)
+	if err != nil {
+		return 0, err
+	}
 
-    // Convert txCount to uint64
-    nonce := txCount.Uint64()
+	// Convert txCount to uint64
+	nonce := txCount.Uint64()
 
-    return nonce, nil
+	return nonce, nil
+}
+
+func (d *ReporterService) GetTransactionCount(address string) (*big.Int, error) {
+	// Initialize JSON-RPC client
+	client, err := rpc.DialContext(context.Background(), "https://rpc.toronto.sx.technology")
+	if err != nil {
+		d.txService.logger.Error("failed to connect to Ethereum node", "err", err)
+		return nil, err
+	}
+	defer client.Close()
+
+	// Convert address string to Ethereum common.Address
+	addr := common.HexToAddress(address)
+
+	// Call eth_getTransactionCount method
+	var count hexutil.Uint64
+	err = client.CallContext(context.Background(), &count, "eth_getTransactionCount", addr, "latest")
+	if err != nil {
+		d.txService.logger.Error("failed to call eth_getTransactionCount via JSON-RPC", "err", err)
+		return nil, err
+	}
+
+	// Convert the result to big.Int
+	txCount := new(big.Int).SetUint64(uint64(count))
+
+	d.logger.Debug("txCount", txCount)
+
+	return txCount, nil
+}
+
+func Max(a, b uint64) uint64 {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+func BytesToECDSAPrivateKey(input []byte) (*ecdsa.PrivateKey, error) {
+	// The key file on disk should be encoded in Base64,
+	// so it must be decoded before it can be parsed by ParsePrivateKey
+	decoded, err := hex.DecodeString(string(input))
+	if err != nil {
+		return nil, err
+	}
+
+	// Make sure the key is properly formatted
+	if len(decoded) != 32 {
+		// Key must be exactly 64 chars (32B) long
+		return nil, fmt.Errorf("invalid key length (%dB), should be 32B", len(decoded))
+	}
+
+	// Convert decoded bytes to a private key
+	key, err := ParseECDSAPrivateKey(decoded)
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
+
+// S256 is the secp256k1 elliptic curve
+var S256 = btcec.S256()
+
+func ParseECDSAPrivateKey(buf []byte) (*ecdsa.PrivateKey, error) {
+	prv, _ := btcec.PrivKeyFromBytes(S256, buf)
+
+	return prv.ToECDSA(), nil
+}
+
+var ErrECDSAKeyNotFound = errors.New("ECDSA key not found in given path")
+
+func GetValidatorAddressFromSecretManager(manager secrets.SecretsManager) (types.Address, error) {
+	if !manager.HasSecret(secrets.ValidatorKey) {
+		return types.ZeroAddress, ErrECDSAKeyNotFound
+	}
+
+	keyBytes, err := manager.GetSecret(secrets.ValidatorKey)
+	if err != nil {
+		return types.ZeroAddress, err
+	}
+
+	privKey, err := BytesToECDSAPrivateKey(keyBytes)
+	if err != nil {
+		return types.ZeroAddress, err
+	}
+
+	return PubKeyToAddress(&privKey.PublicKey), nil
+}
+
+// PubKeyToAddress returns the Ethereum address of a public key
+func PubKeyToAddress(pub *ecdsa.PublicKey) types.Address {
+	buf := Keccak256(MarshalPublicKey(pub)[1:])[12:]
+
+	return types.BytesToAddress(buf)
+}
+
+// Keccak256 calculates the Keccak256
+func Keccak256(v ...[]byte) []byte {
+	h := sha3.NewLegacyKeccak256()
+	for _, i := range v {
+		h.Write(i)
+	}
+
+	return h.Sum(nil)
+}
+
+// MarshalPublicKey marshals a public key on the secp256k1 elliptic curve.
+func MarshalPublicKey(pub *ecdsa.PublicKey) []byte {
+	return elliptic.Marshal(S256, pub.X, pub.Y)
 }
