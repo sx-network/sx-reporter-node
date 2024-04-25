@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/sx-network/sx-reporter/hex"
-	"github.com/sx-network/sx-reporter/keccak"
+	"github.com/sx-network/sx-reporter/helper/hex"
+	"github.com/sx-network/sx-reporter/helper/keccak"
 )
 
 var ZeroAddress = Address{}

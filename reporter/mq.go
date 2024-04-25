@@ -75,7 +75,7 @@ func getConnection(rabbitMQURL string) (Connection, error) {
 	}
 
 	ch, err := conn.Channel()
-
+	
 	return Connection{
 		Channel: ch,
 	}, err
@@ -128,19 +128,17 @@ func (mq *MQService) startConsumer(
 	ctx context.Context, concurrency int,
 ) (<-chan *proto.Report, <-chan error, error) {
 	mq.logger.Debug("Starting MQConsumerService...")
-
 	// create the queue if it doesn't already exist
 	_, err := mq.connection.Channel.QueueDeclare(mq.config.QueueConfig.QueueName, true, false, false, false, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-
+	
 	// bind the queue to the routing key
 	err = mq.connection.Channel.QueueBind(mq.config.QueueConfig.QueueName, "", mq.config.ExchangeName, false, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	// prefetch 4x as many messages as we can handle at once
 	prefetchCount := concurrency * 4
 

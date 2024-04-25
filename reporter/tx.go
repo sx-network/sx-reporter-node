@@ -10,9 +10,9 @@ import (
 
 	"github.com/DataDog/datadog-agent/comp/netflow/common"
 	"github.com/hashicorp/go-hclog"
+	"github.com/sx-network/sx-reporter/helper/types"
 	"github.com/sx-network/sx-reporter/infra/secrets"
 	"github.com/sx-network/sx-reporter/reporter/proto"
-	"github.com/sx-network/sx-reporter/types"
 	"github.com/umbracle/ethgo"
 	ethgoabi "github.com/umbracle/ethgo/abi"
 	"github.com/umbracle/ethgo/contract"
@@ -22,7 +22,7 @@ import (
 
 // Constants defining the JSON-RPC host address and smart contract function signatures.
 const (
-	JSONRPCHost              = "https://rpc-wispy-apricot-grasshopper-1hi6zpdx62.t.conduit.xyz"
+	JSONRPCHost              = "http://localhost:10002"
 	proposeOutcomeSCFunction = "function proposeOutcome(bytes32 marketHash, uint8 outcome)"
 	voteOutcomeSCFunction    = "function voteOutcome(bytes32 marketHash, uint8 outcome)"
 	reportOutcomeSCFunction  = "function reportOutcome(bytes32 marketHash)"
@@ -81,7 +81,6 @@ func (d *ReporterService) GetPrivateKeyFromSecretsManager(keyName string) (*ecds
 
 	return privKey, nil
 }
-
 
 // Sends a transaction to the blockchain with retry logic
 // in case of failures. It constructs the transaction based on the provided

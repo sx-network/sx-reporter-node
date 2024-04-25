@@ -88,6 +88,8 @@ func (serverConfig *ServerConfig) setupSecretsManager() error {
 
 // setupDataFeedService set up and start datafeed service
 func (serverConfig *ServerConfig) setupReporterService() error {
+	serverConfig.Logger.Info("setup reporter service")
+
 	conf := &reporter.ReporterConfig{
 		MQConfig: &reporter.MQConfig{
 			AMQPURI:      serverConfig.ReporterConfig.DataFeedAMQPURI,
