@@ -11,18 +11,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type RawServerConfig struct {
-	RawConfig  *RawConfig
+// YAMLServerConfig represents the configuration of a server, typically loaded from a YAML file.
+type YAMLServerConfig struct {
+	// Specifies the path to the configuration file.
 	ConfigPath string
+	// Indicates whether to use JSON log format.
+	JSONLogFormat bool `json:"json_log_format" yaml:"json_log_format"`
+	// Specifies the directory for storing data.
+	DataDir string `json:"data_dir" yaml:"data_dir"`
+	// Specifies the path to the secrets configuration file.
+	SecretsConfigPath string `json:"secrets_config" yaml:"secrets_config"`
+	// Contains the configuration for the reporter.
+	YAMLReporterConfig *YAMLReporterConfig `json:"reporter" yaml:"reporter"`
+	// Contains the configuration for secrets management.
+	SecretsConfig *secrets.SecretsManagerConfig
 }
 
-type RawConfig struct {
-	JSONLogFormat bool         `json:"json_log_format" yaml:"json_log_format"`
-	DataDir       string       `json:"data_dir" yaml:"data_dir"`
-	RawReporter   *RawReporter `json:"reporter" yaml:"reporter"`
-}
-
-type RawReporter struct {
+// YAMLReporterConfig represents the configuration of a reporter, typically part of the server configuration.
+type YAMLReporterConfig struct {
 	AMQPURI                string `json:"amqp_uri" yaml:"amqp_uri"`
 	AMQPExchangeName       string `json:"amqp_exchange_name" yaml:"amqp_exchange_name"`
 	AMQPQueueName          string `json:"amqp_queue_name" yaml:"amqp_queue_name"`
@@ -31,60 +37,47 @@ type RawReporter struct {
 	SXNodeAddress          string `json:"sx_node_address" yaml:"sx_node_address"`
 }
 
+// Represents the configuration of the server.
 type ServerConfig struct {
-	JSONLogFormat        bool
-	LogLevel             hclog.Level
-	Logger               hclog.Logger
-	ReporterConfig       *ReporterConfig
-	ReporterService      *reporter.ReporterService
-	SecretsManagerConfig *secrets.SecretsManagerConfig
-	SecretsManager       secrets.SecretsManager
-	DataDir              string
+	JSONLogFormat        bool                          // Indicates whether to use JSON log format
+	LogLevel             hclog.Level                   // Log level for the server logger
+	Logger               hclog.Logger                  // Logger instance for the server
+	ReporterConfig       *ReporterConfig               // Configuration for the reporter
+	ReporterService      *reporter.ReporterService     // Reporter service instance
+	SecretsManagerConfig *secrets.SecretsManagerConfig // Configuration for the secrets manager
+	SecretsManager       secrets.SecretsManager        // Secrets manager instance
+	DataDir              string                        // Directory for storing data
 }
 
+// Represents the configuration for the reporter service.
 type ReporterConfig struct {
-	DataFeedAMQPURI          string
-	DataFeedAMQPExchangeName string
-	DataFeedAMQPQueueName    string
-	VerifyOutcomeURI         string
-	OutcomeReporterAddress   string
-	SXNodeAddress            string
+	DataFeedAMQPURI          string // URI for the AMQP connection
+	DataFeedAMQPExchangeName string // Name of the AMQP exchange
+	DataFeedAMQPQueueName    string // Name of the AMQP queue
+	VerifyOutcomeURI         string // URI for verifying outcome
+	OutcomeReporterAddress   string // Address of the outcome reporter
+	SXNodeAddress            string // Address of the SX node
 }
 
-// Returns a default RawConfig object with placeholder default values.
-func DefaultConfig() *RawConfig {
-	return &RawConfig{
-		JSONLogFormat: false,
-		DataDir:       "",
-		RawReporter: &RawReporter{
-			AMQPURI:                "",
-			AMQPExchangeName:       "",
-			AMQPQueueName:          "",
-			VerifyOutcomeAPIURL:    "",
-			OutcomeReporterAddress: "",
-			SXNodeAddress:          "",
-		},
-	}
-}
-
-// Initializes the server configuration from a file path specified in serverParams.ConfigPath.
-// It reads and parses the config file into serverParams.RawConfig.
+// Initializes the server configuration from a file path specified in YAMLServerConfig.ConfigPath.
+// It reads and parses the config file into yamlServerConfig.
 // Returns an error if there's an issue reading or parsing the file.
-func (serverParams *RawServerConfig) InitServerConfigFromFile() error {
-	var parseErr error
-
-	if serverParams.RawConfig, parseErr = ReadConfigFile(serverParams.ConfigPath); parseErr != nil {
-		return parseErr
+func (yamlServerConfig *YAMLServerConfig) InitServerConfigFromFile() error {
+	config, err := ReadConfigFile(yamlServerConfig.ConfigPath)
+	if err != nil {
+		return err
 	}
+
+	*yamlServerConfig = *config
 
 	return nil
 }
 
 // Reads and parses a configuration file specified by 'path'.
 // It supports .yaml and .yml file formats.
-// Returns a RawConfig object parsed from the file.
+// Returns a YAMLServerConfig object parsed from the file.
 // Returns an error if there's an issue reading or parsing the file.
-func ReadConfigFile(path string) (*RawConfig, error) {
+func ReadConfigFile(path string) (*YAMLServerConfig, error) {
 	data, err := os.ReadFile(path)
 
 	if err != nil {
@@ -100,34 +93,69 @@ func ReadConfigFile(path string) (*RawConfig, error) {
 		return nil, fmt.Errorf("suffix of %s is neither hcl, json, yaml nor yml", path)
 	}
 
-	config := DefaultConfig()
+	yamlServerConfig := &YAMLServerConfig{}
 
-	if err := unmarshalFunc(data, config); err != nil {
+	if err := unmarshalFunc(data, &yamlServerConfig); err != nil {
 		return nil, err
 	}
 
-	return config, nil
+	return yamlServerConfig, nil
+}
+
+// Generates a Config object from the yamlServerConfig's configuration data.
+// It populates the Config object with parsed values from the raw configuration.
+func (yamlServerConfig *YAMLServerConfig) GenerateConfig() *ServerConfig {
+	return &ServerConfig{
+		LogLevel:             hclog.LevelFromString("DEBUG"),
+		JSONLogFormat:        yamlServerConfig.JSONLogFormat,
+		DataDir:              yamlServerConfig.DataDir,
+		SecretsManagerConfig: yamlServerConfig.SecretsConfig,
+		ReporterConfig: &ReporterConfig{
+			DataFeedAMQPURI:          yamlServerConfig.YAMLReporterConfig.AMQPURI,
+			DataFeedAMQPExchangeName: yamlServerConfig.YAMLReporterConfig.AMQPExchangeName,
+			DataFeedAMQPQueueName:    yamlServerConfig.YAMLReporterConfig.AMQPQueueName,
+			VerifyOutcomeURI:         yamlServerConfig.YAMLReporterConfig.VerifyOutcomeAPIURL,
+			OutcomeReporterAddress:   yamlServerConfig.YAMLReporterConfig.OutcomeReporterAddress,
+			SXNodeAddress:            yamlServerConfig.YAMLReporterConfig.SXNodeAddress,
+		},
+	}
 }
 
 // Sets the JSON log format in the server's configuration.
-// It updates the JSONLogFormat field in p.RawConfig based on the provided 'jsonLogFormat' boolean.
-func (serverParams *RawServerConfig) SetJSONLogFormat(jsonLogFormat bool) {
-	serverParams.RawConfig.JSONLogFormat = jsonLogFormat
+// It updates the JSONLogFormat field in yamlServerConfig based on the provided 'jsonLogFormat' boolean.
+func (yamlServerConfig *YAMLServerConfig) SetJSONLogFormat(jsonLogFormat bool) {
+	yamlServerConfig.JSONLogFormat = jsonLogFormat
 }
 
-// Generates a Config object from the serverParams's raw configuration data (RawConfig).
-// It populates the Config object with parsed values from the raw configuration.
-func (serverParams *RawServerConfig) GenerateConfig() *ServerConfig {
-	return &ServerConfig{
-		JSONLogFormat: serverParams.RawConfig.JSONLogFormat,
-		DataDir:       serverParams.RawConfig.DataDir,
-		ReporterConfig: &ReporterConfig{
-			DataFeedAMQPURI:          serverParams.RawConfig.RawReporter.AMQPURI,
-			DataFeedAMQPExchangeName: serverParams.RawConfig.RawReporter.AMQPExchangeName,
-			DataFeedAMQPQueueName:    serverParams.RawConfig.RawReporter.AMQPQueueName,
-			VerifyOutcomeURI:         serverParams.RawConfig.RawReporter.VerifyOutcomeAPIURL,
-			OutcomeReporterAddress:   serverParams.RawConfig.RawReporter.OutcomeReporterAddress,
-			SXNodeAddress:            serverParams.RawConfig.RawReporter.SXNodeAddress,
-		},
+// Initializes the raw parameters of the YAMLServerConfig.
+// It calls initSecretsConfig to initialize secrets configuration if SecretsConfigPath is set.
+func (yamlServerConfig *YAMLServerConfig) InitRawParams() error {
+	if err := yamlServerConfig.initSecretsConfig(); err != nil {
+		return err
 	}
+
+	return nil
+}
+
+// Initializes the secrets configuration of the YAMLServerConfig.
+// It reads the secrets configuration file specified by SecretsConfigPath and assigns it to SecretsConfig.
+func (yamlServerConfig *YAMLServerConfig) initSecretsConfig() error {
+	if !yamlServerConfig.isSecretsConfigPathSet() {
+		return nil
+	}
+
+	var parseErr error
+
+	if yamlServerConfig.SecretsConfig, parseErr = secrets.ReadConfig(
+		yamlServerConfig.SecretsConfigPath,
+	); parseErr != nil {
+		return fmt.Errorf("unable to read secrets config file, %w", parseErr)
+	}
+
+	return nil
+}
+
+// Checks if the SecretsConfigPath is set.
+func (yamlServerConfig *YAMLServerConfig) isSecretsConfigPathSet() bool {
+	return yamlServerConfig.SecretsConfigPath != ""
 }

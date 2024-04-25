@@ -75,31 +75,3 @@ func (d *ReporterService) sendCall(
 
 	return nil
 }
-
-func (d *ReporterService) getTransactionCount(address string) (*big.Int, error) {
-    abiContract, err := ethgoabi.NewABIFromList([]string{})
-    if err != nil {
-        d.txService.logger.Error("failed to get abi contract via ethgo", "err", err)
-        return nil, err
-    }
-
-    c := contract.NewContract(
-        ethgo.Address(ethgo.HexToAddress(address)),
-        abiContract,
-        contract.WithJsonRPC(d.txService.client.Eth()),
-    )
-
-    res, err := c.Call("eth_getTransactionCount", ethgo.Latest)
-    if err != nil {
-        d.txService.logger.Error("failed to call eth_getTransactionCount via ethgo", "err", err)
-        return nil, err
-    }
-
-    txCount, ok := res["0"].(*big.Int)
-    if !ok {
-        d.txService.logger.Error("failed to convert result to big int")
-        return nil, err
-    }
-
-    return txCount, nil
-}

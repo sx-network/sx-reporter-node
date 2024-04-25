@@ -1,7 +1,9 @@
 package secrets
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
 
 	"github.com/hashicorp/go-hclog"
 )
@@ -110,3 +112,27 @@ const (
 
 // It is an error indicating that a secret was not found.
 var ErrSecretNotFound = errors.New("secret not found")
+
+// WriteConfig writes the current configuration to the specified path
+func (c *SecretsManagerConfig) WriteConfig(path string) error {
+	jsonBytes, _ := json.MarshalIndent(c, "", " ")
+
+	return os.WriteFile(path, jsonBytes, os.ModePerm)
+}
+
+// ReadConfig reads the SecretsManagerConfig from the specified path
+func ReadConfig(path string) (*SecretsManagerConfig, error) {
+	configFile, readErr := os.ReadFile(path)
+	if readErr != nil {
+		return nil, readErr
+	}
+
+	config := &SecretsManagerConfig{}
+
+	unmarshalErr := json.Unmarshal(configFile, &config)
+	if unmarshalErr != nil {
+		return nil, unmarshalErr
+	}
+
+	return config, nil
+}

@@ -27,10 +27,10 @@ type MQConfig struct {
 
 // Represents a message queue service.
 type MQService struct {
-	logger          hclog.Logger // logger is the logger instance.
-	config          *MQConfig    // config holds the configuration settings for the message queue.
-	connection      Connection   // connection is the connection to the message queue.
-	reporterService *ReporterService    // reporterService is the service responsible for reporting.
+	logger          hclog.Logger     // logger is the logger instance.
+	config          *MQConfig        // config holds the configuration settings for the message queue.
+	connection      Connection       // connection is the connection to the message queue.
+	reporterService *ReporterService // reporterService is the service responsible for reporting.
 }
 
 // Represents a connection to the message queue.
@@ -75,7 +75,7 @@ func getConnection(rabbitMQURL string) (Connection, error) {
 	}
 
 	ch, err := conn.Channel()
-	
+
 	return Connection{
 		Channel: ch,
 	}, err
@@ -133,7 +133,7 @@ func (mq *MQService) startConsumer(
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	// bind the queue to the routing key
 	err = mq.connection.Channel.QueueBind(mq.config.QueueConfig.QueueName, "", mq.config.ExchangeName, false, nil)
 	if err != nil {
