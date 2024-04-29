@@ -60,8 +60,6 @@ func newEventListener(logger hclog.Logger, reporterService *ReporterService) (*E
 // Upon receiving events, it unpacks the event data, handles type assertions, and processes the events accordingly.
 // If any errors occur during event handling or subscription, it logs the errors and attempts to reconnect after a delay.
 func (e EventListener) startListeningLoop() {
-	e.logger.Debug("Start setup config to listen for events")
-
 	contractAbi, err := abi.JSON(strings.NewReader(abis.OutcomeReporterJSONABI))
 	if err != nil {
 		e.logger.Error("error while parsing OutcomeReporter contract ABI", "err", err)
@@ -71,21 +69,17 @@ func (e EventListener) startListeningLoop() {
 
 	outcomeReporterAddress := common.HexToAddress(e.reporterService.config.OutcomeReporterAddress)
 
-	e.logger.Debug("outcomeReporterAddress", outcomeReporterAddress)
-
 	proposeOutcomeSub, proposeOutcomeLogs, err := e.subscribeToProposeOutcome(contractAbi, outcomeReporterAddress)
 	if err != nil {
 		panic(fmt.Errorf("fatal error while subscribing to ProposeOutcome logs: %w", err))
 	}
-
-	e.logger.Debug("---")
 
 	outcomeReportedSub, outcomeReportedLogs, err := e.subscribeToOutcomeReported(contractAbi, outcomeReporterAddress)
 	if err != nil {
 		panic(fmt.Errorf("fatal error while subscribing to OutcomeReported logs: %w", err))
 	}
 
-	e.logger.Debug("Listening for events...")
+	e.logger.Debug("listening for events...")
 
 	for {
 		select {

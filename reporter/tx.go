@@ -99,7 +99,7 @@ func (d *ReporterService) sendTxWithRetry(
 	d.logger.Debug("functionType", functionType)
 	d.logger.Debug("validator key", secrets.ValidatorKey)
 
-	privateKey, err := d.GetPrivateKeyFromSecretsManager(secrets.ValidatorKey) // @todo delete and use consensus
+	privateKey, err := d.GetPrivateKeyFromSecretsManager(secrets.ValidatorKey)
 	if err != nil {
 		d.txService.logger.Error("private key error")
 	}

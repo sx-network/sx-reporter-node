@@ -127,7 +127,6 @@ func (mq *MQService) startConsumeLoop() {
 func (mq *MQService) startConsumer(
 	ctx context.Context, concurrency int,
 ) (<-chan *proto.Report, <-chan error, error) {
-	mq.logger.Debug("Starting MQConsumerService...")
 	// create the queue if it doesn't already exist
 	_, err := mq.connection.Channel.QueueDeclare(mq.config.QueueConfig.QueueName, true, false, false, false, nil)
 	if err != nil {
