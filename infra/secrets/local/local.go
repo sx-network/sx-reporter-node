@@ -63,7 +63,8 @@ func (l *LocalSecretsManager) Setup() error {
 	l.secretPathMapLock.Lock()
 	defer l.secretPathMapLock.Unlock()
 
-	subDirectories := []string{secrets.ConsensusFolderLocal, secrets.NetworkFolderLocal}
+	// subDirectories := []string{secrets.ConsensusFolderLocal, secrets.NetworkFolderLocal}
+	subDirectories := []string{}
 
 	// Set up the local directories
 	if err := common.SetupDataDir(l.path, subDirectories); err != nil {
@@ -71,24 +72,10 @@ func (l *LocalSecretsManager) Setup() error {
 	}
 
 	// baseDir/consensus/validator.key
-	l.secretPathMap[secrets.ValidatorKey] = filepath.Join(
+	l.secretPathMap[secrets.ReporterKey] = filepath.Join(
 		l.path,
-		secrets.ConsensusFolderLocal,
-		secrets.ValidatorKeyLocal,
-	)
-
-	// baseDir/consensus/validator-bls.key
-	l.secretPathMap[secrets.ValidatorBLSKey] = filepath.Join(
-		l.path,
-		secrets.ConsensusFolderLocal,
-		secrets.ValidatorBLSKeyLocal,
-	)
-
-	// baseDir/libp2p/libp2p.key
-	l.secretPathMap[secrets.NetworkKey] = filepath.Join(
-		l.path,
-		secrets.NetworkFolderLocal,
-		secrets.NetworkKeyLocal,
+		// secrets.ConsensusFolderLocal,
+		secrets.ReporterKeyLocal,
 	)
 
 	return nil

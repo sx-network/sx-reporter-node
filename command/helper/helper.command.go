@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
+	"github.com/ryanuber/columnize"
 	"github.com/sx-network/sx-reporter/command"
 	"github.com/sx-network/sx-reporter/infra/common"
+	"github.com/sx-network/sx-reporter/infra/secrets"
+	"github.com/sx-network/sx-reporter/infra/secrets/awsssm"
 )
 
 type ClientCloseResult struct {
@@ -55,4 +59,48 @@ func HandleSignals(
 	case <-gracefulCh:
 		return nil
 	}
+}
+
+// GetCloudSecretsManager returns the cloud secrets manager from the provided config
+func InitCloudSecretsManager(secretsConfig *secrets.SecretsManagerConfig) (secrets.SecretsManager, error) {
+	var secretsManager secrets.SecretsManager
+
+	switch secretsConfig.Type {
+	case secrets.AWSSSM:
+		AWSSSM, err := setupAWSSSM(secretsConfig)
+		if err != nil {
+			return secretsManager, err
+		}
+
+		secretsManager = AWSSSM
+	default:
+		return secretsManager, errors.New("unsupported secrets manager")
+	}
+
+	return secretsManager, nil
+}
+
+// setupAWSSSM is a helper method for boilerplate aws ssm secrets manager setup
+func setupAWSSSM(
+	secretsConfig *secrets.SecretsManagerConfig,
+) (secrets.SecretsManager, error) {
+	return awsssm.SecretsManagerFactory(
+		secretsConfig,
+		&secrets.SecretsManagerParams{
+			Logger: hclog.NewNullLogger(),
+		},
+	)
+}
+
+// FormatKV formats key value pairs:
+//
+// Key = Value
+//
+// Key = <none>
+func FormatKV(in []string) string {
+	columnConf := columnize.DefaultConfig()
+	columnConf.Empty = "<none>"
+	columnConf.Glue = " = "
+
+	return columnize.Format(in, columnConf)
 }

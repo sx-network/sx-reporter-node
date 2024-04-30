@@ -97,9 +97,9 @@ func (d *ReporterService) sendTxWithRetry(
 ) {
 
 	d.logger.Debug("functionType", functionType)
-	d.logger.Debug("validator key", secrets.ValidatorKey)
+	d.logger.Debug("validator key", secrets.ReporterKey)
 
-	privateKey, err := d.GetPrivateKeyFromSecretsManager(secrets.ValidatorKey)
+	privateKey, err := d.GetPrivateKeyFromSecretsManager(secrets.ReporterKey)
 	if err != nil {
 		d.txService.logger.Error("private key error")
 	}
@@ -403,11 +403,11 @@ func ParseECDSAPrivateKey(buf []byte) (*ecdsa.PrivateKey, error) {
 var ErrECDSAKeyNotFound = errors.New("ECDSA key not found in given path")
 
 func GetValidatorAddressFromSecretManager(manager secrets.SecretsManager) (types.Address, error) {
-	if !manager.HasSecret(secrets.ValidatorKey) {
+	if !manager.HasSecret(secrets.ReporterKey) {
 		return types.ZeroAddress, ErrECDSAKeyNotFound
 	}
 
-	keyBytes, err := manager.GetSecret(secrets.ValidatorKey)
+	keyBytes, err := manager.GetSecret(secrets.ReporterKey)
 	if err != nil {
 		return types.ZeroAddress, err
 	}

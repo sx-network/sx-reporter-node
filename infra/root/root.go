@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sx-network/sx-reporter/command/flags"
+	"github.com/sx-network/sx-reporter/command/secrets"
 	serverCommand "github.com/sx-network/sx-reporter/command/server"
 )
 
@@ -32,6 +33,7 @@ func NewRootCommand() *RootCommand {
 func (rc *RootCommand) registerSubCommands() {
 	rc.baseCmd.AddCommand(
 		serverCommand.GetCommand(),
+		secrets.GetCommand(),
 	)
 }
 

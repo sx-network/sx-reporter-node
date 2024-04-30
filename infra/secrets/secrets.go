@@ -33,12 +33,8 @@ type SecretsManagerParams struct {
 const (
 	// Local pertains to the local FS [Default]
 	Local SecretsManagerType = "local"
-	// HashicorpVault pertains to the Hashicorp Vault server
-	HashicorpVault SecretsManagerType = "hashicorp-vault"
 	// AWSSSM pertains to AWS SSM using configured EC2 instance role
 	AWSSSM SecretsManagerType = "aws-ssm"
-	// GCPSSM pertains to the Google Cloud Computing secret store manager
-	GCPSSM SecretsManagerType = "gcp-ssm"
 )
 
 // Constants representing keys used in the SecretsManagerParams Extra map for configuration.
@@ -84,30 +80,16 @@ type SecretsManager interface {
 	RemoveSecret(name string) error
 }
 
-// Constants representing folder names.
-const (
-	ConsensusFolderLocal = "consensus"
-	NetworkFolderLocal   = "libp2p"
-)
-
 // Constants representing names for available secrets.
 const (
-	// ValidatorKey is the private key secret of the validator node
-	ValidatorKey = "validator-key"
-	// ValidatorBLSKey is the bls secret key of the validator node
-	ValidatorBLSKey = "validator-bls-key"
-	// NetworkKey is the libp2p private key secret used for networking
-	NetworkKey = "network-key"
+	// ReporterKey is the private key secret of the reporter node
+	ReporterKey = "reporter-key"
 )
 
 // Constants representing file names for the local StorageManager.
 const (
-	// It is the file name for the validator node's private key in the local StorageManager.
-	ValidatorKeyLocal = "validator.key"
-	// It is the file name for the validator node's BLS secret key in the local StorageManager.
-	ValidatorBLSKeyLocal = "validator-bls.key"
-	// It is the file name for the libp2p private key used for networking in the local StorageManager.
-	NetworkKeyLocal = "libp2p.key"
+	// It is the file name for the reporter node's private key in the local StorageManager.
+	ReporterKeyLocal = "reporter.key"
 )
 
 // It is an error indicating that a secret was not found.
@@ -135,4 +117,10 @@ func ReadConfig(path string) (*SecretsManagerConfig, error) {
 	}
 
 	return config, nil
+}
+
+// SupportedServiceManager checks if the passed in service manager type is supported
+func SupportedServiceManager(service SecretsManagerType) bool {
+	return service == AWSSSM ||
+		service == Local
 }
