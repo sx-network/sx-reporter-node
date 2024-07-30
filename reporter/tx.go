@@ -29,7 +29,7 @@ import (
 
 // Constants defining the JSON-RPC host address and smart contract function signatures.
 const (
-	JSONRPCHost              = "http://localhost:10002"
+	JSONRPCHost              = "https://rpc.sx-rollup-testnet.t.raas.gelato.cloud"
 	proposeOutcomeSCFunction = "function proposeOutcome(bytes32 marketHash, uint8 outcome)"
 	voteOutcomeSCFunction    = "function voteOutcome(bytes32 marketHash, uint8 outcome)"
 	reportOutcomeSCFunction  = "function reportOutcome(bytes32 marketHash)"
