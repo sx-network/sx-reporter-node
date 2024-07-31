@@ -83,7 +83,7 @@ type SecretsManager interface {
 // Constants representing names for available secrets.
 const (
 	// ReporterKey is the private key secret of the reporter node
-	ReporterKey = "reporter-key"
+	ReporterKey = "validator-key"
 )
 
 // Constants representing file names for the local StorageManager.

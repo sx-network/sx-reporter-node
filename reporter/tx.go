@@ -196,8 +196,8 @@ func (d *ReporterService) sendTxWithRetry(
 		//TODO: derive these gas params better, have it dynamic?
 		txn.WithOpts(
 			&contract.TxnOpts{
-				GasPrice: txGasPriceWei + (txTry * txGasPriceWei),
-				GasLimit: txGasLimitWei,
+				// GasPrice: txGasPriceWei + (txTry * txGasPriceWei),
+				// GasLimit: txGasLimitWei,
 				Nonce:    currNonce,
 			},
 		)
@@ -334,7 +334,7 @@ func (d *ReporterService) getCurrentNonce(address string) (uint64, error) {
 
 func (d *ReporterService) GetTransactionCount(address string) (*big.Int, error) {
 	// Initialize JSON-RPC client
-	client, err := rpc.DialContext(context.Background(), "https://rpc.toronto.sx.technology")
+	client, err := rpc.DialContext(context.Background(), JSONRPCHost)
 	if err != nil {
 		d.txService.logger.Error("failed to connect to Ethereum node", "err", err)
 		return nil, err
