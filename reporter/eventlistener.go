@@ -29,7 +29,7 @@ type EventListener struct {
 
 // Represents the host address for connecting to an Ethereum JSON-RPC WebSocket server.
 const (
-	JSONRPCWsHost = "ws://localhost:10002/ws"
+	JSONRPCWsHost = "wss://ws.sx-rollup-testnet.t.raas.gelato.cloud"
 )
 
 // Creates a new event listener with the provided logger and reporter service.
